@@ -1,0 +1,1003 @@
+#+TITLE: SICP
+#+AUTHOR: 147Pm
+#+EMAIL: borgauf@sdf.org
+#+DATE: 2017-02-08T14:26:12
+#+Filetags: :SICP
+#+LANGUAGE:  en
+# #+INFOJS_OPT: view:showall ltoc:t mouse:underline path:http://orgmode.org/org-info.js
+#+HTML_HEAD: <link rel="stylesheet" href="../../data/stylesheet.css" type="text/css">
+#+EXPORT_SELECT_TAGS: export
+#+EXPORT_EXCLUDE_TAGS: noexport
+#+OPTIONS: H:15 num:15 toc:nil \n:nil @:t ::t |:t _:{} *:t ^:{} prop:t
+#+OPTIONS: prop:t
+# This makes MathJax not work
+# #+OPTIONS: tex:imagemagick
+# this makes MathJax work
+#+OPTIONS: tex:t
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS: [american]
+# Setup tikz package for both LaTeX and HTML export:
+#+LATEX_HEADER: \usepackage{tikz}
+#+LATEX_HEADER: \usepackage{commath}
+#+LaTeX_HEADER: \usepackage{pgfplots}
+#+LaTeX_HEADER: \usepackage{sansmath}
+#+LaTeX_HEADER: \usepackage{mathtools}
+# #+HTML_MATHJAX: align: left indent: 5em tagside: left font: Neo-Euler
+#+PROPERTY: header-args:latex+ :packages '(("" "tikz"))
+#
+#+PROPERTY: header-args:latex+ :exports results :fit yes
+#
+#+STARTUP: showall
+#+STARTUP: align
+#+STARTUP: indent
+#+STARTUP: entitiespretty
+#+STARTUP: logdrawer
+
+* STRUCTURE AND INTERPRETATION OF COMPUTER PROGRAMS
+:LOGBOOK:
+:END:
+
+** 1 Building Abstractions with Procedures
+
+*** 1.1.4/1.1.5 Square example 
+
+#+name:square
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (square x)
+  (* x x))
+#+end_src
+
+#+name:sumsquares
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (sumsquares x y)
+  (+ (square x) (square y)))
+#+end_src
+
+#+name:f
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (f a)
+  (sumsquares (+ a 1) (* a 2)))
+#+end_src
+
+/Normal-order evaluation/: fully expand and then reduce.
+/Applicative-order evaluation/: evaluate the arguments and then apply.
+
+
+*** 1.1.6 Conditional Expressions and Predicates
+
+/Case analysis/ example:
+
+\begin{align}
+ | x | = \left\{ \begin{array}{r@{\quad \mathrm{if} \quad}l} |
+        x  &  x > 0, \\
+	0  &  x = 0, \\
+  \!\! -x  &  x < 0. \end{array} \right.
+\end{align}
+
+#+name: abs1
+#+begin_src scheme :session mainsession :results silent
+(define (abs1 x)
+  (cond ((> x 0) x)
+        ((= x 0) 0)
+        ((< x 0) (- x))))
+#+end_src
+
+another version combining steps 1 and 2 from above:
+
+#+name: abs2
+#+begin_src scheme :session mainsession :results silent
+(define (abs2 x)
+  (cond ((< x 0) (- x))
+        (else x)))
+#+end_src
+
+yet another version:
+
+#+name: abs3
+#+begin_src scheme :session :exports both :tangle yes :cache yes :results silent
+(define (abs3 x)
+  (if (< x 0)
+      (- x)
+      x))
+#+end_src
+
+
+
+**** Exercise 1.5
+
+Is this Scheme interpreter /applicative-order/ or /normal-order/? The procedures should test this. . .
+
+#+name: exercise-1.5
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (p) (p))
+
+(define (test x y)
+  (if (= x 0) 0 y))
+#+end_src
+
+. . . so if we evaluate the expression ~(test 0 (p))~, what will happen?
+
+Answer: ~p~ is recursively defined by itself. Therefore, for /applicative-order/ evaluation, ~p~ will be evaluated in ~test~, and, hence, infinite recursion. However, in /normal-order/ evaluation, the expression's ~(p)~ will not be evaluated, and ~test~ will return $0$. (Out of the box, most Scheme interpreters are /applicative-order/ and bomb with ~(test 0 (p))~.)
+
+**** Exercise 1.6
+
+Use ~new-if~ instead of regular ~if~ in ~sqrt-iter~? What will happen?
+
+#+name:new-if
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (new-if predicate then-clause else-clause)
+  (cond (predicate then-clause)
+        (else else-clause)))
+#+end_src
+
+#+name: new-sqrt-iter
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (new-sqrt-iter guess x)
+  (new-if (good-enough? guess x)
+      guess
+      (new-sqrt-iter (improve guess x) x)))
+#+end_src
+
+This goes into an endless loop because the ~new-if~ is behaving like a function, and in an /applicative-order/ environment, it will be evaluated no matter what, i.e., no usual "lazy" ~if~ behavior. This means /the ~else~ clause is always evaluated./
+
+Again, the ~if~ statement is a special form and behaves differently. ~if~ first evalutes the predictate, and /then/ evaluates either the consequent (if the predicate evalutes to ~#t~) or the alternative (if the predicate evalues to ~#f~). This is key difference from ~new-if~ -- only one of the two consequent expressions get evaluated when using ~if~, while /both/ of the consequent expressions get evaluated with ~new-if~.
+
+*** 1.1.7 Newton's Square Root
+
+Basic algorithm says recursively find the average of $y$, a guess, with $x/y$, the $x$, the number you're trying find the square root of.
+
+#+name: average
+#+begin_src scheme :session mainsession :results silent
+(define (average x y)
+  (/ (+ x y) 2))
+#+end_src
+
+#+name: improve
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (improve guess x)
+  (average guess (/ x guess)))
+#+end_src
+
+#+name: good-enough?
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (good-enough? guess x)
+  (< (abs (- (square guess) x)) 0.001))
+#+end_src
+
+#+name: sqrt-iter
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (sqrt-iter guess x)
+  (if (good-enough? guess x)
+      guess
+      (sqrt-iter (improve guess x) x)))
+#+end_src
+
+#+name: mysqrt
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (mysqrt x)
+  (sqrt-iter 1.0 x))
+#+end_src
+
+In general, this
+
+\begin{align*}
+{\displaystyle (1+x)^\frac{s}{t} = \sum _{n=0}^{\infty }{\frac {\prod _{k=0}^{n-1}(s-kt)}{n!t^{n}}}x^{n}}
+\end{align*}
+
+will give the /radical/ or /root/ of $x$ to any power.
+
+
+**** Exercise 1.7
+
+~sqrt-iter~ isn't good for very small or very large numbers. The tolerance of $.001$ is not sufficient for getting small square roots. For large numbers, the machine precision is not able to distinguish between small differences, hence, the test can't see past a certain threshold.
+  
+#+name:improved-good-enough?
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (improved-good-enough? guess x) 
+  (< (/ (abs (- (square guess) x)) guess) (* guess 0.0001))) 
+#+end_src
+
+The above expression tests a tiny percentage of the ~guess~ against the "rate of change" done by $(X_1 - X_0) / X_0$
+
+
+**** Exercise 1.8
+
+If $y$ is an approximation to the cube root, then
+
+\[
+\frac{x/y^2 + 2y}{3}
+\]
+
+is a better approximation. This is Newton's method for cube roots. Let's implement something like the previous ~sqrt-iter~.
+
+#+name:ncube
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (cube x)
+  (* x x x))
+
+(define (cube-improve guess x)
+  (/ (+ (/ x (square guess)) (* 2 guess)) 3))
+
+;; (define (cube-good-enough? guess x)
+;;   (< (abs (- (cube guess) x)) 0.001))
+
+(define (cube-good-enough? guess x)
+  (< (/ (abs (- (cube guess) x)) guess) (* guess 0.0001)))
+
+(define (cube-iter guess x)
+  (if (cube-good-enough? guess x)
+      guess
+      (cube-iter (cube-improve guess x) x)))  
+#+end_src
+
+
+
+*** 1.1.8 Procedures as Black-Box Abstractions
+
+#+name:double
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (double x) (+ x x))
+#+end_src
+
+This uses ~(exp z)~ (Euler’s raised to ~z~) and ~log z~ (natural log of ~z~) and often produces “ragged” real numbers:
+
+#+name:elsquare
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (elsquare x)
+  (exp (double (log x))))
+#+end_src
+
+Use ~round~ to correct:
+
+#+begin_src scheme :session mainsession
+(elsquare 5)
+(round (elsquare 5))
+#+end_src
+
+#+RESULTS:
+: 25.0
+
+***** Block structure
+
+This is a /block structure/ version of ~sqrt~
+
+#+name:block-sqrt
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (block-sqrt x)
+  (define (good-enough? guess)
+    (< (abs (- (square guess) x)) 0.001))
+  (define (improve guess)
+    (average guess (/ x guess)))
+  (define (sqrt-iter guess)
+    (if (good-enough? guess)
+        guess
+        (sqrt-iter (improve guess))))
+  (sqrt-iter 1.0))
+#+end_src
+
+*** 1.2 Procedures and the Processes They Generate
+
+*** 1.2.1 Linear Recursion and Iteration
+
+Factorial is $n! = n \cdot (n - 1)! = n \cdot [(n−1) \cdot (n−2) \cdots 3⋅2⋅1]$
+
+#+name:fact1
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (fact1 n)
+  (if (= n 1) 
+      1 
+      (* n (fact1 (- n 1)))))
+#+end_src
+
+#+name:trace-fact1
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes
+(require racket/trace)
+(trace fact1)
+(fact1 6)
+#+end_src
+
+#+RESULTS[dc04c2377d83b2631a2f5b8d21a8010f30572abc]: trace-fact1
+: 720
+
+#+BEGIN_EXAMPLE
+>(fact1 6)
+> (fact1 5)
+> >(fact1 4)
+> > (fact1 3)
+> > >(fact1 2)
+> > > (fact1 1)
+< < < 1
+< < <2
+< < 6
+< <24
+< 120
+<720
+#+END_EXAMPLE
+
+#+name:fact2
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (fact2 n)
+  (if (or (= n 1) (= n 0))
+      1 
+      (* n (fact2 (- n 1)))))
+#+end_src
+
+#+name:fact-nl
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (fact-nl n)
+  (let factorial-impl ((n n) (t 1))
+      (if (eq? n 0)
+        t
+        (factorial-impl (- n 1) (* t n)))))
+#+end_src
+
+**** Exercise 1.9
+
+#+name:rec+
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (rec+ a b)
+  (if (= a 0)
+      b
+      (add1 (rec+ (sub1 a) b))))
+#+end_src
+
+#+name:iter+
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (iter+ a b)
+  (if (= a 0)
+      b
+      (iter+ (sub1 a) (add1 b))))
+#+end_src
+
+#+name:trace-rec+
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes
+(require racket/trace)
+(trace rec+)
+(rec+ 4 5)
+#+end_src
+
+#+RESULTS[ed4c346e15786c2ea6d3ba9ca60c9236fbee1020]: trace-rec+
+: 9
+
+#+BEGIN_SRC scheme
+>(rec+ 4 5)
+> (rec+ 3 5)
+> >(rec+ 2 5)
+> > (rec+ 1 5)
+> > >(rec+ 0 5)
+< < <5
+< < 6
+< <7
+< 8
+<9
+9
+#+END_SRC
+
+**** Exercise 1.10
+
+#+name: Ackermann
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (Ackermann x y)
+  (cond ((= y 0) 0)
+        ((= x 0) (* 2 y))
+        ((= y 1) 2)
+        (else (Ackermann (- x 1) (Ackermann x (- y 1))))))
+#+end_src
+
+#+name: Ackermann-test-1
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes
+(require racket/trace)
+(trace Ackermann)
+(Ackermann 1 10)
+#+end_src
+
+#+RESULTS[6c8b071b5380179f2b3e39721c510038581454bd]: Ackermann-test-1
+: 1024
+
+
+Trace of (Ackermann 1 10):
+#+BEGIN_EXAMPLE
+>(Ackermann 1 10)
+> (Ackermann 1 9)
+> >(Ackermann 1 8)
+> > (Ackermann 1 7)
+> > >(Ackermann 1 6)
+> > > (Ackermann 1 5)
+> > > >(Ackermann 1 4)
+> > > > (Ackermann 1 3)
+> > > > >(Ackermann 1 2)
+> > > > > (Ackermann 1 1)
+< < < < < 2
+> > > > >(Ackermann 0 2)
+< < < < <4
+> > > > (Ackermann 0 4)
+< < < < 8
+> > > >(Ackermann 0 8)
+< < < <16
+> > > (Ackermann 0 16)
+< < < 32
+> > >(Ackermann 0 32)
+< < <64
+> > (Ackermann 0 64)
+< < 128
+> >(Ackermann 0 128)
+< <256
+> (Ackermann 0 256)
+< 512
+>(Ackermann 0 512)
+<1024
+#+END_EXAMPLE
+
+#+name: Ackermann-fixed
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (Af n) (Ackermann 0 n))
+(define (Ag n) (Ackermann 1 n))
+(define (Ah n) (Ackermann 2 n))
+(define (k n) (* 5 n n)) 
+#+end_src
+
+- ~(Af n)~ $\rightarrow 2n \cdots$ e.g. ~(Af 10)~ $\rightarrow$ ~20~ $\rightarrow 2n$
+- ~(Ag n)~ $\rightarrow 2^n$
+- ~(Ah n)~ $\rightarrow 2^{2^{2}} \cdots (n-1)$ times
+
+
+*** 1.2.2 Tree Recursion
+
+Fibonacci numbers:
+
+\begin{align}
+Fib(n) = \left\{ \begin{array}{ll}
+0 & if \ n = 0,\\
+1 & if \, n = 1,\\
+Fib(n - 1)  +  Fib(n - 2) & otherwise. \end{array} \right.
+\end{align}
+
+translates to this code:
+
+#+name: fib1
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (fib n)
+  (cond ((= n 0) 0)
+        ((= n 1) 1)
+        (else (+ (fib (- n 1))
+                 (fib (- n 2))))))
+#+end_src
+
+#+name: fib1-test
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes
+(require racket/trace)
+(trace fib)
+(fib 5)
+#+end_src
+
+#+RESULTS[7782b33befbf3b0b94a815328c2ea82b0bf15897]: fib1-test
+: 5
+
+However, this is terribly inefficient. From this trace:
+
+#+BEGIN_EXAMPLE
+>(fib 5)
+> (fib 4)
+> >(fib 3)
+> > (fib 2)
+> > >(fib 1)
+< < <1
+> > >(fib 0)
+< < <0
+< < 1
+> > (fib 1)
+< < 1
+< <2
+> >(fib 2)
+> > (fib 1)
+< < 1
+> > (fib 0)
+< < 0
+< <1
+< 3
+> (fib 3)
+> >(fib 2)
+> > (fib 1)
+< < 1
+> > (fib 0)
+< < 0
+< <1
+> >(fib 1)
+< <1
+< 2
+<5
+#+END_EXAMPLE
+
+we see that ~(fib 3)~ is done twice.
+
+**** Exercise 1.11 
+
+\begin{align}
+f11(n) = \left\{ \begin{array}{ll}
+n & if \ n < 3,\\
+f11(n - 1)  +  2f11(n - 2) + 3f11(n - 3) & if n \ge 3. \end{array} \right.
+\end{align}
+
+#+name:f11
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (f11 n)
+  (cond ((< n 3) n)
+        ((>= n 3) (+ (f11 (- n 1))
+           (* 2 (f11 (- n 2)))
+           (* 3 (f11 (- n 3)))))))
+#+end_src
+
+#+name:f11i
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (f11i n)
+  (f11i-iter 0 1 2 n))
+
+(define (f11i-iter a b c count)
+  (if (= count 0)
+      a
+      (f11i-iter b c (+ c (* 2 b) (* 3 a)) (- count 1))))
+#+end_src
+
+**** Exercise 1.12 Pascal’s Triangle
+
+#+BEGIN_EXAMPLE
+         1
+       1   1
+     1   2   1
+   1   3   3   1
+ 1   4   6   4   1
+#+END_EXAMPLE
+
+#+name:pascaltriangle
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (pascaltriangle n)
+  (let pt-impl ((n n) (tril '()))
+    (if (eq? n 0)
+        tril
+        (pt-impl (sub1 n) (cons (ptrow (sub1 n)) tril)))))
+
+(define (ptrow n)
+  (let bino-impl ((k n) (binol '()))
+    (if  (eq? k 0) 
+         (cons 1 binol)
+         (bino-impl (sub1 k) (cons (binocoef n k) binol)))))
+
+
+(define (binocoef n k)
+  (/ (fact2 n) (* (fact2 k) (fact2 (- n k)))))
+#+end_src
+
+**** Exercise 1.13
+
+Prove that $Fib(n)$ is the closest integer to $\varphi^n \big/ \sqrt{5}$, where $\varphi = (1 + \sqrt{5}) \big/ 2$. Hint: Let $\psi = (1 - \sqrt{5} \big/ 2$. Use induction and the definition of the Fibonacci numbers (see 1.2.2) to prove that $Fib(n) = (\varphi^n - \psi^n) \big/ \sqrt{5}$.
+
+- /The math/:[fn:1]
+
+  #+caption: Golden ratio geometrically.
+  [[./images/Golden_ratio_line.png]]
+
+  Two quantities $a$ and $b$ are said to be in the /golden ratio $\varphi$/ if
+
+  \begin{align*}
+  \frac{a + b}{a} = \frac{a}{b} = \varphi.
+  \end{align*}
+
+  One method for finding the value of $\varphi$ is to start with the left fraction. Through simplifying the fraction and substituting in $b \big/ a = 1 \big/ \varphi$,
+
+  \begin{align*}
+  \frac{a + b}{a} = 1 + \frac{b}{a} = 1 + \frac{1}{\varphi}.
+  \end{align*}
+
+  Therefore,
+
+  \begin{align*}
+   1 + \frac{1}{\varphi} = \varphi.
+  \end{align*}
+
+  Multiplying by $\varphi$ gives
+
+  \begin{align*}
+   \varphi + 1 = \varphi^2
+  \end{align*}
+
+  which can be rearranged to
+
+  \begin{align}
+  \varphi^2 - \varphi - 1 = 0.
+  \end{align}
+
+  Another way is to let $b$ in Figure 1 to be of length $1$ and $a$ to be $x$, so that $a + b = 1 + x$. Then we have
+
+  \begin{align*}
+   \frac{x + 1}{x} = \frac{x}{1} = \varphi
+  \end{align*}
+
+  so that
+
+  \begin{align}
+   x^2 - x - 1 = 0.
+  \end{align}
+
+  Hence, $(4)$ and $(5)$ are in the same form. Now, plugging this into the /quadratic equation/:
+
+  \begin{align*}
+   \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+  \end{align*}
+
+  which gives
+
+  \begin{align*}
+   \varphi = \frac{1 + \sqrt{5}}{2} = 1.6180339887498948482\dots
+  \end{align*} 
+
+  but also
+
+  \begin{align*}
+   \varphi = \frac{1 - \sqrt{5}}{2} = -0.6180339887498948482\dots
+  \end{align*}
+
+  but since this is the ratio of positives, we discard the second solution.
+
+- More /The Math/
+
+  The /conjugate/[fn:2] of a binomial is another binomial formed by negating the second term of the original binomial. The conjugate of $x + y$ is $x - y$. For example
+
+  \begin{align*}
+   a^2 - b^2
+  \end{align*}
+
+  can be factored to give
+
+  \begin{align*}
+  (a + b)(a - b)
+  \end{align*}
+
+  where one factor is the conjugate of the other.
+
+  Also, a /radical/ is the root of anything, e.g., /radical seven/ is $\sqrt{7}$. In the expression $\sqrt[n]{x}$, $n$ is the index, $\surd$ is the /radical symbol/ or /radix/, and $x$ is the /radicand/.
+
+So $\psi = (1 - \sqrt{5} \big/ 2$ is the conjugate of $\varphi = (1 + \sqrt{5} \big/ 2$ and these are the roots of the equation $x^2 = x + 1$.
+
+Now, we will show with induction that
+
+\begin{align}
+F_i = \frac{\varphi^i - \psi^i}{\sqrt{5}}
+\end{align}
+
+or, easier with a neat trick
+
+\begin{align}
+F_{i+1} = \frac{\varphi^{i+1} - \psi^{i+1}}{\sqrt{5}}
+\end{align}
+
+First, we need to establish two base cases $F_0$ and $F_1$ since Fibonnaci is defined as $F_i = F_{i-1} + F_{i-2}$. This is just plug-in work:
+
+\begin{align*}
+F_0 & = \frac{\varphi^0 - \psi^0}{\sqrt{5}} \\
+    & = \frac{1 - 1}{\sqrt{5}} \\
+    & = 0
+\end{align*}
+
+and
+
+\begin{align*}
+F_1 & = \frac{\varphi^1 - \psi^1}{\sqrt{5}} \\
+    & = \frac{\frac{1 + \sqrt{5}}{2} - \frac{1 - \sqrt{5}}{2}}{\sqrt{5}} \\
+    & = \frac{\frac{1 - 1 + \sqrt{5} + \sqrt{5}}{2}}{\sqrt{5}} \\
+    & = \frac{\frac{2\sqrt{5}}{2}}{\sqrt{5}} \\
+    & = \frac{\sqrt{5}}{\sqrt{5}} \\
+    & = 1.
+\end{align*}
+
+Now, for
+
+\begin{align*}
+F_{i+1} & = F_i + F_{i-1} \\
+    & = \frac{\varphi^i - \psi^i}{\sqrt{5}} +  \frac{\varphi^{i-1} - \psi^{i-1}}{\sqrt{5}} \\
+    & = \frac{\varphi^i - \psi^i + \varphi^{i-1} - \psi^{i-1} }{\sqrt{5}}
+\end{align*}
+
+But consider how $\varphi + \psi = 1 = -\varphi\psi$. This allows a neat trick, namely:
+
+\begin{align*}
+\varphi^{i+1} - \psi^{i+1} & = (\varphi + \psi)(\varphi^i - \psi^i) - \varphi\psi(\varphi^{i-1} - \psi^{i-1}) \\
+          & = \varphi^{i+1} + \varphi^{i}\psi -  \varphi\psi^{i} - \psi^{i+1} - \varphi^{i}\psi + \varphi\psi^{i}
+\end{align*}
+
+Plugging this back in
+
+\begin{align*}
+F_{i+1} = \frac{\varphi^{i+1} - \varphi\psi^{i} +  \varphi^{i}\psi - \psi^{i+1} - \varphi^{i}\psi + \varphi\psi^{i}}{\sqrt{5}}
+\end{align*}
+
+\begin{align}
+F_{i+1} & =  \frac{\varphi^{i+1 }- \psi^{i+1}}{\sqrt{5}}
+\end{align}
+
+*** 1.2.3 Orders of Growth
+
+We say that $R(n)$ has order of growth $\theta(f(n))$, written $R(n) = \theta(f(n))$, if there are positive constants $k_1$ and $k_2$ independent of $n$ such that $k_1f(n) \le R(n) \le k_2f(n)$ for any sufficiently large value of $n$. This is to say for large $n$, the value $R(n)$ is sandwiched between $k_1f(n)$ and $k_2f(n)$.
+
+This basically means that if we can find a function $f(n)$ so that $R(n) will stay between $k_1f(n)$ and k_2f(n) the duration of $n$, then our order of growth for $R(n)$ is \theta(f(n)) or $R(n) = \theta(f(n))$.
+
+A process requiring $n^2$ steps and a process requiring $1000n^2$ steps and a process requiring $3n^2+10n+17$ all have $\theta(n^2)$ order of growth. On the other hand, order of growth provides a useful indication of how we may expect the behavior of the process to change as we change the size of the problem. For a $\theta(n) (linear) process, doubling the size will roughly double the amount of resources used. For an exponential process, each increment in problem size will multiply the resource utilization by a constant factor.
+
+**** Exercise 1.14 ~count-change~
+
+What are the orders of growth of the space and number of steps used by the process below as the amount to be changed increases?
+
+#+name:count-change
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (count-change amount)
+  (cc amount 5))
+
+(define (cc amount kinds-of-coins)
+  (cond ((= amount 0) 1)
+        ((or (< amount 0) 
+             (= kinds-of-coins 0)) 
+         0)
+        (else 
+         (+ (cc amount (- kinds-of-coins 1))
+            (cc (- amount (first-denomination 
+                           kinds-of-coins))
+                kinds-of-coins)))))
+
+(define (first-denomination kinds-of-coins)
+  (cond ((= kinds-of-coins 1) 1)
+        ((= kinds-of-coins 2) 5)
+        ((= kinds-of-coins 3) 10)
+        ((= kinds-of-coins 4) 25)
+        ((= kinds-of-coins 5) 50)))
+#+end_src
+
+#+BEGIN_EXAMPLE
+(count-change 11)
+|
+(cc 11 5)__
+|          \
+(cc 11 4)   (cc -39 5)
+|       \___
+|           \
+(cc 11 3)   (cc -14 4)
+|       \_______________________________________________________
+|                                                               \
+(cc 11 2)                                                      (cc 1 3)
+|       \_________________________                              |     \__
+|                                 \                             |        \
+(cc 11 1)                        (cc 6 2)                      (cc 1 2) (cc -9 2)
+|       \___                      |     \__                     |     \__
+|           \                     |        \                    |        \
+(cc 11 0)   (cc 10 1)            (cc 6 1) (cc 1 2)             (cc 1 1) (cc -4 2)
+         __/ |                 __/ |       |     \__            |     \__
+        /    |                /    |       |        \           |        \
+(cc 10 0)   (cc 9 1)  (cc 6 0)   (cc 5 1) (cc 1 1) (cc -4 2)   (cc 1 0) (cc 0 1)
+         __/ |                 __/ |       |     \__
+        /    |                /    |       |        \
+(cc 9 0)    (cc 8 1)  (cc 5 0)   (cc 4 1) (cc 1 0) (cc 0 1)
+         __/ |                 __/ |
+        /    |                /    |
+(cc 8 0)    (cc 7 1)  (cc 4 0)   (cc 3 1)
+         __/ |                 __/ |
+        /    |                /    |
+(cc 7 0)    (cc 6 1)  (cc 3 0)   (cc 2 1)
+         __/ |                 __/ |
+        /    |                /    |
+(cc 6 0)    (cc 5 1)  (cc 2 0)   (cc 1 1)
+         __/ |                 __/ |
+        /    |                /    |
+(cc 5 0)    (cc 4 1)  (cc 1 0)   (cc 0 1)
+         __/ |
+        /    |
+(cc 4 0)    (cc 3 1)
+         __/ |
+        /    |
+(cc 3 0)    (cc 2 1)
+         __/ |
+        /    |
+(cc 2 0)    (cc 1 1)
+         __/ |
+        /    |
+(cc 1 0)    (cc 0 1)
+#+END_EXAMPLE
+
+#+begin_src scheme :session mainsession
+(count-change 11)
+#+end_src
+
+#+RESULTS:
+: 4
+
+$\rightarrow$ ...count up the ~(cc 1 0)~ leaves in the above tree. They each become $1$ (see code above).
+
+**** Exercise 1.15
+
+First, we look at
+
+\begin{align}
+ lim_{\theta\rightarrow0}\frac{sin\theta}{\theta} = 1
+\end{align}
+
+Using the Greek letter $\theta$ for the angle indicates we are dealing with /[[https://en.wikipedia.org/wiki/Radian][radians]]/ rather than degrees. One full /radian/ is simply the angle for the arc that is the length of the radius. (Watch the gif animation to understand this.) In technical language we say:
+
+#+BEGIN_QUOTE
+One radian is the angle subtended at the center of a circle by an arc that is equal in length to the radius of the circle.
+#+END_QUOTE
+
+#+caption: Circle radians 
+[[file:images/Circle_radians.gif]]
+
+As we see in the image[fn:3] above, $\pi$ is exactly half way around a circle in radians---and we have an arc length of $\pi \cdot r$ ---which is just $\pi$ if this is a unit circle with $r = 1$. Hence, if the length of the circumference of a circle is $2{\pi}r$, then
+
+\begin{align*}
+\frac{2{\pi}r}{r} rad = 2\pi rad.
+\end{align*}
+
+Another good thing to deduce is the angle is proportional (layman term: “related to”) to the length of the circular arc that it spans:
+
+\begin{align*}
+\theta = \frac{l}{r} rad
+\end{align*}
+
+where $l$ is the arc length, $r$ is the radius of the circle, and $rad$ is the radian. And if the circle in question is a unit circle, i.e., radius is $1$, then $\theta = l\, rad$.
+
+Now, if we have a unit circle with radius $1$, then $\theta$ and the length of the arc swept out are equal:
+
+#+caption: A circle of radius $1$ with an arc of angle $\theta$.
+[[file:images/limitofsine.png]]
+ 
+But notice that the definition of sine is $opposite \big/ hypotenuse$, hence, there seems to be a relation between the opposite edge length of the triangle in the image and the arc length. This is to say $sin\theta \big/ \theta$ is the ratio of edge length to arc length. Clear enough, especially in cases when $\theta = \pi\big/2 \,rad$ then $sin\theta = 1$. So
+
+\begin{align*}
+\frac{sin\theta}{\theta} = \frac{1}{\frac{\pi}{2}} = \frac{2}{\pi}
+\end{align*}
+
+Backing around the semi-circle, consider $\theta = \pi \big/ 4 \,rad$ ($45^\circ$)
+
+\begin{align*}
+sin\frac{\pi}{4} = .7071067811865475 = \frac{\sqrt{2}}{2}
+\end{align*}
+
+and
+
+\begin{align*}
+\frac{sin\theta}{\theta} = \frac{2\sqrt{2}}{\pi} \cong \frac{9}{10}
+\end{align*}
+
+#+name:1.15.sine
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (1.15.cube x) (* x x x))
+(define (1.15.p x) (- (* 3 x) (* 4 (1.15.cube x))))
+(define (1.15.sine angle)
+  (if (not (> (abs angle) 0.1))
+      angle
+      (1.15.p (1.15.sine (/ angle 3.0)))))
+#+end_src
+
+*** 1.2.4 Exponentiation
+
+A recursive definition of $b^n$ might be
+
+\begin{align*}
+b^n & = b \cdot b^{n-1}, \\
+b^0 & = 1,
+\end{align*}
+
+which becomes
+
+#+name:1.2.4.expt
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (1.2.4.expt b n)
+  (if (= n 0) 
+      1 
+      (* b (1.2.4.expt b (- n 1)))))
+#+end_src
+
+And here is an iterative version:
+
+#+name:1.2.4.expti
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (1.2.4.expti b n) 
+  (1.2.4.expt-iter b n 1))
+
+(define (1.2.4.expt-iter b counter product)
+  (if (= counter 0)
+      product
+      (1.2.4.expt-iter b
+                 (- counter 1)
+                 (* b product))))
+#+end_src
+
+Compute using fewer steps by using successive squaring. So for $b^8$, we previously did
+
+\begin{align*}
+b\cdot(b\cdot(b\cdot(b\cdot(b\cdot(b\cdot(b\cdot b)))))),
+\end{align*}
+
+we can do it in three steps
+
+\begin{align*}
+b^2 & = b \cdot b \\
+b^4 & = b^2 \cdot b^2 \\
+b^8 & = b^4 \cdot b^4
+\end{align*}
+
+but this is only good for when the exponents are even numbers. More generally,
+
+\begin{align*}
+b^n & = (b^{n/2})^2 \quad  \text{if n is even,} \\
+b^n & = b \cdot b^{n-1} \quad  \text{if n is odd}. \\
+\end{align*}
+
+
+
+
+* PROGRAMMING AND META-PROGRAMMING IN SCHEME
+
+** Chapter 2
+
+*** Distance formula
+
+#+name:dist1
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define dist1
+  (lambda (x y)
+    (abs (- x y))))
+#+end_src
+
+*** Problem with ~list~ as data or
+
+**** Don't make this mistake:
+
+#+name:make-point-bad
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (make-point-bad x y z)
+  '(x y z))
+#+end_src
+
+#+name:make-point-bad-test1
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes
+(make-point-bad 1 2 3)
+#+end_src
+
+#+RESULTS[c2ae073e714f86d1b3bdf75bdc47fe2b6011b5f2]: make-point-bad-test1
+: (x y z)
+
+...when you really want
+
+#+name:make-point-good
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+(define (make-point-good x y z)
+  (list x y z))
+#+end_src
+
+#+name:(make-point-good-test1
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes
+(make-point-good 1 2 3)
+#+end_src
+
+#+RESULTS[923682870477c1dd4a80b4d6504e3ad50c228466]: (make-point-good-test1
+: (1 2 3)
+
+...which /constructs/ a list out of the input parameters.
+
+#+name:
+#+begin_src scheme :session mainsession :exports both :tangle yes :cache yes :results silent
+
+#+end_src
+
+**** Dotted pair versus list of cardinality 2
+
+***** ~(cdr '(a b))~ \rightarrow ~(b)~; ~(cdr '(a . b))~ \rightarrow ~b~
+
+*** Association Lists as Records
+
+**** 
+
+* Footnotes
+
+[fn:3] https://en.wikipedia.org/wiki/Radian
+
+[fn:2] https://en.wikipedia.org/wiki/Conjugate_(algebra)
+
+[fn:1] https://en.wikipedia.org/wiki/Golden_ratio
+
